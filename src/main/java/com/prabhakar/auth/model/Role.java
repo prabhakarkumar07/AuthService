@@ -1,16 +1,12 @@
 package com.prabhakar.auth.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+
 
 import java.util.Set;
 
 @Entity
 @Table(name = "roles")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class Role {
 
     @Id
