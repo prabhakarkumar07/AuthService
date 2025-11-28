@@ -1,0 +1,57 @@
+<configuration>
+
+    <!-- =======================
+         MAIN APPLICATION LOGS
+         ======================= -->
+    <appender name="MAIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>D:/serviceslog/auth/app.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>D:/serviceslog/auth/app-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+
+    <!-- =======================
+         SECURITY LOGS (WARN+ERROR)
+         ======================= -->
+    <appender name="SECURITY" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>D:/serviceslog/auth/security.log</file>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>D:/serviceslog/auth/security-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+
+    <!-- =======================
+         ROUTING SECURITY PACKAGE TO SECURITY LOGS
+         ======================= -->
+    <logger name="com.prabhakar.auth.security" level="INFO" additivity="false">
+        <appender-ref ref="SECURITY"/>
+        <appender-ref ref="MAIN"/>
+    </logger>
+
+
+    <!-- =======================
+         ROOT LOGGER
+         ======================= -->
+    <root level="INFO">
+        <appender-ref ref="MAIN"/>
+    </root>
+
+</configuration>
