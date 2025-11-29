@@ -1,58 +1,37 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- 
-       Detect OS and choose log folder:
-       1. If LOG_DIR env is provided → use that
-       2. If not → if Windows → use D:/serviceslog/auth
-       3. Else Linux → /var/log/auth
-    -->
-    <property name="LOG_DIR"
-              value="${LOG_DIR:-${os.name.contains('Windows') ? 'D:/serviceslog/auth' : '/var/log/auth'}}" />
+    <property name="LOG_PATH" value="${LOG_PATH:-/var/log/auth}" />
 
-    <!-- Make sure directory exists (safe for Docker and Windows) -->
-    <property name="LOG_FILE" value="${LOG_DIR}/app.log"/>
-    <property name="SEC_LOG_FILE" value="${LOG_DIR}/security.log"/>
-
-    <!-- MAIN APPLICATION LOG -->
     <appender name="MAIN" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_FILE}</file>
-
+        <file>${LOG_PATH}/app.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_DIR}/app-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_PATH}/app-%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
         </rollingPolicy>
-
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- SECURITY LOGS -->
     <appender name="SECURITY" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${SEC_LOG_FILE}</file>
-
+        <file>${LOG_PATH}/security.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_DIR}/security-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_PATH}/security-%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
         </rollingPolicy>
-
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>
         </filter>
-
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss} %-5level [%thread] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- SECURITY PACKAGE -->
     <logger name="com.prabhakar.auth.security" level="INFO" additivity="false">
         <appender-ref ref="SECURITY"/>
         <appender-ref ref="MAIN"/>
     </logger>
 
-    <!-- ROOT LOGGER -->
     <root level="INFO">
         <appender-ref ref="MAIN"/>
     </root>
