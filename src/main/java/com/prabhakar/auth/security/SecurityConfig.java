@@ -41,6 +41,8 @@ public class SecurityConfig {
                 // ROLE-BASED ENDPOINTS
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/profile/**").authenticated()
+                .requestMatchers("/api/superadmin/**").hasRole("SUPERADMIN")
+
 
                 // PERMISSION-BASED ENDPOINTS
                 .requestMatchers(HttpMethod.GET, "/api/users/**")
