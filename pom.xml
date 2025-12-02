@@ -95,6 +95,26 @@
       <version>1.18.30</version>
       <scope>provided</scope>
     </dependency>
+    
+    <dependency>
+   			 <groupId>org.springframework.boot</groupId>
+   			<artifactId>spring-boot-starter-data-redis</artifactId>
+	</dependency>
+	
+	<!-- mail-->
+	<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-mail</artifactId>
+</dependency>
+
+<!--Cloudinary-->
+
+<dependency>
+    <groupId>com.cloudinary</groupId>
+    <artifactId>cloudinary-http44</artifactId>
+    <version>1.39.0</version>
+</dependency>
+
 
     <!-- Devtools -->
     <dependency>

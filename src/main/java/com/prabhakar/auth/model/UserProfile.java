@@ -13,6 +13,10 @@ public class UserProfile {
     private String fullName;
     private String phone;
     private String address;
+    
+    @Column(name = "profile_image")
+    private String profileImage;
+
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
@@ -34,4 +38,9 @@ public class UserProfile {
 
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
+
+	public String getProfileImage() { return profileImage; }
+	public void setProfileImage(String profileImage) { this.profileImage = profileImage; }
+    
+    
 }
