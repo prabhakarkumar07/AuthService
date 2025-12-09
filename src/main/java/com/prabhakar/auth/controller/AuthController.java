@@ -1,25 +1,37 @@
 package com.prabhakar.auth.controller;
 
+import java.net.URI;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.cache.CacheManager;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.prabhakar.auth.dto.ApiResponse;
 import com.prabhakar.auth.dto.RegistrationRequest;
 import com.prabhakar.auth.dto.UserResponse;
 import com.prabhakar.auth.exception.TokenRefreshException;
-import com.prabhakar.auth.model.*;
-import com.prabhakar.auth.repository.*;
+import com.prabhakar.auth.model.RefreshToken;
+import com.prabhakar.auth.model.Role;
+import com.prabhakar.auth.model.User;
+import com.prabhakar.auth.repository.RoleRepository;
+import com.prabhakar.auth.repository.UserRepository;
 import com.prabhakar.auth.security.JwtUtil;
+import com.prabhakar.auth.service.BlacklistService;
 import com.prabhakar.auth.service.RefreshTokenService;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.*;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/auth")
@@ -31,6 +43,8 @@ public class AuthController {
     private final RoleRepository roleRepo;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenService refreshTokenService;
+    private final BlacklistService blacklistService;
+    private final CacheManager cacheManager;
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
@@ -39,7 +53,9 @@ public class AuthController {
                           UserRepository userRepo,
                           PasswordEncoder passwordEncoder,
                           RefreshTokenService refreshTokenService,
-                          RoleRepository roleRepo) {
+                          RoleRepository roleRepo,
+                          BlacklistService blacklistService,
+                          CacheManager cacheManager) {
 
         this.authManager = authManager;
         this.jwtUtil = jwtUtil;
@@ -47,6 +63,8 @@ public class AuthController {
         this.passwordEncoder = passwordEncoder;
         this.refreshTokenService = refreshTokenService;
         this.roleRepo = roleRepo;
+        this.blacklistService = blacklistService;
+        this.cacheManager = cacheManager;
     }
 
     // Create a default USER role user at startup
@@ -73,6 +91,7 @@ public class AuthController {
 
         String username = body.get("username");
         String password = body.get("password");
+        String deviceId = body.get("deviceid");
 
         log.info("Login attempt: {}", username);
 
@@ -83,14 +102,70 @@ public class AuthController {
 
         log.info("Login successful for user: {} (role={})", username, user.getRole().getName());
 
-        String accessToken = jwtUtil.generateToken(username);
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+        String accessToken = jwtUtil.generateToken(username,deviceId);
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user,deviceId);
 
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "accessToken", accessToken,
                 "refreshToken", refreshToken.getToken()
         )));
     }
+    
+    @PostMapping("/logout")
+    public ApiResponse logout(HttpServletRequest request, Authentication auth) {
+
+        String accessToken = jwtUtil.extractTokenFromRequest(request);
+        if (accessToken == null) {
+            return ApiResponse.error(400, "NO_TOKEN", "Access token missing");
+        }
+
+        String deviceId = jwtUtil.extractDeviceId(accessToken);
+        long expiresIn = jwtUtil.getExpirationSeconds(accessToken);
+
+        // 1) blacklist access token
+        blacklistService.blacklistToken(accessToken, expiresIn);
+
+        // figure username safely
+        String username;
+        if (auth != null && auth.getName() != null) {
+            username = auth.getName();
+        } else if (jwtUtil.validateToken(accessToken)) {
+            username = jwtUtil.extractUsername(accessToken);
+        } else {
+            return ApiResponse.error(401, "UNAUTHENTICATED", "Authentication required for logout");
+        }
+
+        // 2) remove only current device refresh token
+        refreshTokenService.invalidateRefreshToken(username, deviceId);
+
+        // 3) clear cache
+        if (cacheManager.getCache("profiles") != null) cacheManager.getCache("profiles").evict(username);
+        if (cacheManager.getCache("users") != null) cacheManager.getCache("users").evict(username);
+
+        return ApiResponse.success("Logged out from this device");
+    }
+
+
+    @PostMapping("/logout/all")
+    public ApiResponse logoutAll(HttpServletRequest request, Authentication auth) {
+
+        String token = jwtUtil.extractTokenFromRequest(request);
+        if (token != null) {
+            long exp = jwtUtil.getExpirationSeconds(token);
+            blacklistService.blacklistToken(token, exp);
+        }
+
+        // 1️⃣ Remove ALL refresh tokens for this user
+        refreshTokenService.invalidateAllRefreshTokens(auth.getName());
+
+        // 2️⃣ Clear cache
+        cacheManager.getCache("profiles").evict(auth.getName());
+        cacheManager.getCache("users").evict(auth.getName());
+
+        return ApiResponse.success("Logged out from all devices");
+    }
+
+
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegistrationRequest req) {
@@ -128,7 +203,7 @@ public class AuthController {
         try {
             RefreshToken newRefreshToken = refreshTokenService.validateAndRotate(refreshTokenStr);
 
-            String newAccessToken = jwtUtil.generateToken(newRefreshToken.getUser().getUsername());
+            String newAccessToken = jwtUtil.generateToken(newRefreshToken.getUser().getUsername(),newRefreshToken.getDeviceId());
             log.info("Refresh token rotated for user: {}", newRefreshToken.getUser().getUsername());
 
             return ResponseEntity.ok(ApiResponse.success(Map.of(

@@ -3,6 +3,8 @@ package com.prabhakar.auth.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -32,18 +34,19 @@ public class JwtUtil {
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // 🔥 Generate Access Token Only
-    public String generateToken(String username) {
+    public String generateToken(String username, String deviceId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpiration);
 
         return Jwts.builder()
                 .setSubject(username)
+                .claim("deviceId", deviceId)
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
+
 
     public String extractUsername(String token) {
         return Jwts.parserBuilder()
@@ -53,6 +56,60 @@ public class JwtUtil {
                 .getBody()
                 .getSubject();
     }
+    
+    
+    public String extractDeviceId(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        Object id = claims.get("deviceId");
+        return id != null ? id.toString() : null;
+    }
+
+    public String extractTokenFromRequest(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
+    }
+    
+    public long getRemainingExpirySeconds(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            long now = System.currentTimeMillis();
+            long expMillis = claims.getExpiration().getTime();
+            long sec = (expMillis - now) / 1000;
+            return Math.max(sec, 0);
+        } catch (JwtException e) {
+            return 0;
+        }
+    }
+
+    
+    public long getExpirationSeconds(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        long expMillis = claims.getExpiration().getTime();
+        long nowMillis = System.currentTimeMillis();
+        long diff = (expMillis - nowMillis) / 1000;
+
+        return Math.max(diff, 0);
+    }
+
+    
 
     public boolean validateToken(String token) {
         try {

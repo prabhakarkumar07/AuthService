@@ -16,6 +16,9 @@ public class RefreshToken {
     private Instant expiryDate;
 
     private boolean revoked = false;
+   
+    @Column(name = "device_id")
+    private String deviceId; 
 
     // relationship with User
     @ManyToOne
@@ -28,10 +31,14 @@ public class RefreshToken {
     public Instant getExpiryDate() { return expiryDate; }
     public boolean isRevoked() { return revoked; }
     public User getUser() { return user; }
-
-    public void setId(Long id) { this.id = id; }
+    public String getDeviceId() { return deviceId; }
+    
+	public void setId(Long id) { this.id = id; }
     public void setToken(String token) { this.token = token; }
     public void setExpiryDate(Instant expiryDate) { this.expiryDate = expiryDate; }
     public void setRevoked(boolean revoked) { this.revoked = revoked; }
     public void setUser(User user) { this.user = user; }
+    public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
+    
+    
 }

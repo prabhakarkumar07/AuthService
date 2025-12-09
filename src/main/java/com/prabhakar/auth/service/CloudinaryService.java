@@ -23,25 +23,18 @@ public class CloudinaryService {
                     file.getBytes(),
                     ObjectUtils.asMap(
                             "folder", "profile_images",
-                            "resource_type", "image",
-                            "transformation", new Object[]{ 
-                                    ObjectUtils.asMap(
-                                            "gravity", "face",
-                                            "radius", "max",      // <-- makes it round
-                                            "crop", "thumb",
-                                            "width", 300,
-                                            "height", 300
-                                    )
-                            }
+                            "resource_type", "image"
                     )
             );
 
             return upload.get("secure_url").toString();
 
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to upload profile image");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Cloudinary upload failed: " + e.getMessage());
         }
     }
+
 
 
 }

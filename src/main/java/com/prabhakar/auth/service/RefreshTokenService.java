@@ -1,16 +1,18 @@
 package com.prabhakar.auth.service;
 
-import com.prabhakar.auth.exception.TokenRefreshException;
-import com.prabhakar.auth.model.RefreshToken;
-import com.prabhakar.auth.model.User;
-import com.prabhakar.auth.repository.RefreshTokenRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
+import com.prabhakar.auth.exception.TokenRefreshException;
+import com.prabhakar.auth.model.RefreshToken;
+import com.prabhakar.auth.model.User;
+import com.prabhakar.auth.repository.RefreshTokenRepository;
 
 @Service
 public class RefreshTokenService {
@@ -24,9 +26,10 @@ public class RefreshTokenService {
         this.repo = repo;
     }
 
-    public RefreshToken createRefreshToken(User user) {
+    public RefreshToken createRefreshToken(User user,String deviceId) {
         RefreshToken rt = new RefreshToken();
         rt.setUser(user);
+        rt.setDeviceId(deviceId);
         rt.setToken(UUID.randomUUID().toString());
         rt.setExpiryDate(Instant.now().plusMillis(refreshTokenExpiration));
         rt.setRevoked(false);
@@ -63,7 +66,7 @@ public class RefreshTokenService {
         rt.setRevoked(true);
         repo.save(rt);
 
-        RefreshToken newToken = createRefreshToken(rt.getUser());
+        RefreshToken newToken = createRefreshToken(rt.getUser(),rt.getDeviceId());
         return newToken;
     }
 
@@ -71,10 +74,25 @@ public class RefreshTokenService {
         token.setRevoked(true);
         repo.save(token);
     }
+    
+    @Transactional
+    public void invalidateRefreshToken(String username, String deviceId) {
+        repo.deleteByUserUsernameAndDeviceId(username, deviceId);
+    }
 
     @Transactional
+    public void invalidateAllRefreshTokens(String username) {
+        repo.deleteByUserUsername(username);
+    }
+
+    public Optional<RefreshToken> findByToken(String token) {
+        return repo.findByToken(token);
+    }
+    
+    @Transactional
     public void revokeAllTokensForUser(User user) {
-        List<RefreshToken> tokens = repo.findAllByUser(user);
+    	List<RefreshToken> tokens = repo.findByUser(user);
+
         for (RefreshToken t : tokens) {
             if (!t.isRevoked()) {
                 t.setRevoked(true);
